@@ -1,0 +1,50 @@
+# ===== Archives (local backup only, do not push) =====
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.gz
+
+# ===== Office temp files =====
+~$*
+
+# ===== Keil MDK build output =====
+Objects/
+Listings/
+OBJ/
+DebugConfig/
+EventRecorderStub.scvd
+*.o
+*.d
+*.crf
+*.lnp
+*.iex
+*.dep
+*.lst
+*.axf
+*.htm
+*.sct
+*.uvguix.*
+JLinkLog.txt
+JLinkSettings.ini
+
+# ===== IAR / CCS =====
+Debug/
+Release/
+settings/
+
+# ===== JetBrains / VSCode =====
+.idea/
+cmake-build-*/
+.vscode/
+
+# ===== ESP-IDF =====
+build/
+sdkconfig.old
+managed_components/
+
+# ===== OS =====
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,78 @@
+/* RCC开启时钟，
+   选择时基单元时钟源
+	 配置时基单元，包括这里的预分频器，自动重装器，计数模式 结构体
+	 配置输出终端控制，允许更新中断输出到NVIC
+	 配置NVIC，在NVIC中打开定时器中断的通道，并分配一个优先级
+	 运行控制  使能计数器 计数器计数，触发中断
+*/
+
+/*
+    void TIM_DeInit(TIM_TypeDef* TIMx);   恢复初始配置
+    void TIM_TimeBaseInit(TIM_TypeDef* TIMx, TIM_TimeBaseInitTypeDef* TIM_TimeBaseInitStruct); 实基单元初始化
+		void TIM_TimeBaseStructInit(TIM_TimeBaseInitTypeDef* TIM_TimeBaseInitStruct);   结构体变量的赋默认值
+		void TIM_Cmd(TIM_TypeDef* TIMx, FunctionalState NewState); 使能计数器
+		void TIM_ITConfig(TIM_TypeDef* TIMx, uint16_t TIM_IT, FunctionalState NewState);   使能中断信号   笔记中断输出控制
+		
+		void TIM_InternalClockConfig(TIM_TypeDef* TIMx);     选择内部时钟
+		void TIM_ITRxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource);   选择ITRx其他定时器的时钟  
+		void TIM_TIxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_TIxExternalCLKSource,uint16_t TIM_ICPolarity, uint16_t ICFilter);      选择TIx捕获通道的时钟
+		void TIM_ETRClockMode1Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity,uint16_t ExtTRGFilter);      选择ETR通过外部时钟模式1输入的时钟
+		void TIM_ETRClockMode2Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter);      选择ETR通过外部时钟模式2输入的时钟
+		void TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity,uint16_t ExtTRGFilter);                单独配置ETR引脚的预分频器，极性，滤波器
+    void TIM_PrescalerConfig(TIM_TypeDef* TIMx, uint16_t Prescaler, uint16_t TIM_PSCReloadMode);         预分频值 写入模式
+		void TIM_CounterModeConfig(TIM_TypeDef* TIMx, uint16_t TIM_CounterMode);       改变计数器计数模式
+		void TIM_ARRPreloadConfig(TIM_TypeDef* TIMx, FunctionalState NewState);        自动重装器预装功能配置
+		void TIM_SetCounter(TIM_TypeDef* TIMx, uint16_t Counter);         给计数器写入一个值    手动给计数值
+		void TIM_SetAutoreload(TIM_TypeDef* TIMx, uint16_t Autoreload);   给自动重装器写一个值
+		uint16_t TIM_GetCounter(TIM_TypeDef* TIMx);  获取当前计数器的值
+		uint16_t TIM_GetPrescaler(TIM_TypeDef* TIMx);  获取当前预分频器的值
+		
+		获取标志位清除标志位
+		FlagStatus TIM_GetFlagStatus(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);  
+		void TIM_ClearFlag(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);
+		ITStatus TIM_GetITStatus(TIM_TypeDef* TIMx, uint16_t TIM_IT);
+		void TIM_ClearITPendingBit(TIM_TypeDef* TIMx, uint16_t TIM_IT);
+		
+*/
+#include "stm32f10x.h"                  // Device header
+// extern uint16_t Num;
+void Timer_Init(int AR , int PS)
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);  //开启时钟
+	
+	TIM_InternalClockConfig(TIM2);     //选择内部时钟
+	
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;    //结构体
+	TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;  //指定时钟分频 采样频率 一分频
+	TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up; //计数器模式 向上计数
+	TIM_TimeBaseInitStructure.TIM_Period = AR - 1;   //周期 ARR自动重装器的值  0——65535         定时频率 = 72M / (PSC+1) / (ARR+1)  10k频率计10000个数
+	TIM_TimeBaseInitStructure.TIM_Prescaler = PS - 1;  //PSC预分频器的值         0——65535      预分频多 自动重装少 频率低计较少的数
+	TIM_TimeBaseInitStructure.TIM_RepetitionCounter = 0;  //重复计数器的值
+	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseInitStructure);    //初始化时基单元
+	
+	TIM_ClearFlag(TIM2, TIM_FLAG_Update);     //手动清除更新中断标志位  防止立刻更新中断进入中断从1开始
+	TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);//使能中断
+	
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+	
+	NVIC_InitTypeDef NVIC_InitStructure;
+	NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;   //中断通道  定时器2   NVIC通道
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2; //抢占优先级
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;    //响应优先级
+	NVIC_Init(&NVIC_InitStructure);         //初始化结构体
+	
+	TIM_Cmd(TIM2, ENABLE);
+}
+
+/*
+void TIM2_IRQHandler(void)
+{
+	if (TIM_GetITStatus(TIM2, TIM_IT_Update) == SET)  //获取中断标志位  
+	{
+		
+		TIM_ClearITPendingBit(TIM2, TIM_IT_Update);  //清除标志位
+	}
+}
+*/
+
